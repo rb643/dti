@@ -18,7 +18,6 @@ end
 if isempty(nRand); nRand = 10; end
 if isempty(PlotAverage); PlotAverage = 1; end
 
-% Remove subjects with missing clinical data: CAT118, CAT120, CAT122
 connectivity = Matrix;
 nSubjects = size(connectivity,4);
 % Extract NOS matrix for every subject and remove singleton dimensions
