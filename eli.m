@@ -1,30 +1,40 @@
-function [Result wResult pResult] = eli(Matrix, nRand, PlotAverage, PlotAll, GroupMask, prev, metric)
+function [Result wResult pResult faResult] = eli(Matrix,regionDescriptions, nRand, PlotAverage, PlotAll, prev, metric,GroupMask)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% INPUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Matrix            -       4D connectivity matrix(node*node*measure*subject)
+%% regionDescriptions-       A cell structure containing names of all nodes in your matrix (at this point its only used for plotting)
 %% UseMask           -       1D logical with which subjects to include, if not supplied defaults to all
 %% nRand             -       number of randomization used in random networks for normalization
 %% PlotAverage       -       Logical to set if we want to plot average
 %% PlotAll           -       Logical to set if we want to plot the output of some graph metrics
-%% GroupMask         -       1D vector with grouplabels
 %% prev              -       prevalence for prevalence weighted matrices
 %% metric            -       metric that we want to use to construct matrices (defaults to number of streamlines)
+%% GroupMask         -       1D vector with grouplabels
+%% TODO:
+%% include subject mask to tell which subject to include (although this is probably better to do beforehand...)
+%% include ROI volume vector for volume weighting/correction
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% OUTPUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Result            -       Graph metrics from binary matrices including all NOS's >0
-%% wResult           -       Graph metrics from weighted matrices 
+%% wResult           -       Graph metrics from weighted matrices
 %% pResult           -       Graph metrics from matrices weighted based on group prevalence
+%% TODO:
+%% nResult           -       Graph metrics from matrices corrected with ROI*ROI volume
 
-if exist('GroupMask')
-    % Assign default group membership
-    groups = GroupMask;
-else
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% EXAMPLE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% [Result wResult pResult faResult] = eli(connectivity, 1, 0, 1, groups, 0.75, 1);[Result wResult pResult] = eli(connectivity, 1, 0, 1, groups, 0.75, 1);
+
+%% check all the inputs and if they do not exist then revert to default settings
+if (~exist('GroupMask','var')); display('no groupmask specified, reverting to default...');
     groups = [1 2 3 0	2 0	0	0	3	0	2	3	0	1	1	0	0	0	1	0	2	2	2	1	2	3	3	3	3	2	1	3	2	3	0	0	2	0	1	2	0	0	0	1	1	1	3	2	3	2	1	3	1	1	1	2	1	1	2	1	1	2	1	1	1	2	1	2	1	0	2	1	3	1	1	0	0	3	0	0	0	0	2	1	2	3	2	2	1	1	6	1	3	3	2	3	3]';
+else
+    groups = GroupMask;
 end
-
-if exist('nRand'); nRand = nRand; else nRand =10; end
-if exist('PlotAverage'); PlotAverage = PlotAverage; else PlotAverage = 0; end
-if exist('PlotAverage'); PlotAll = PlotAll; else PlotAll = 0; end
-if exist('metric'); metric = metric; else metric = 1; end
+if exist('prev'); prev = prev; else display('no prevalence threshold specified, reverting to default of 0.75...'); prev = 0.75; end
+if exist('nRand'); nRand = nRand; else display('no number of randomizations specified, reverting to default of 10...'); nRand = 10; end
+if exist('PlotAverage'); PlotAverage = PlotAverage; else display('no plotting option specified for average plots, reverting to default...'); PlotAverage = 0; end
+if exist('PlotAll'); PlotAll = PlotAll; else display('no plotting option specified for metric plots, reverting to default...'); PlotAll = 1; end
+if exist('metric'); metric = metric; else display('no metric specified, reverting to number of streamlines...'); metric = 1; end
+if exist('regionDescriptions'); regionDescriptions = regionDescriptions; else display('no region descriptions specified, reverting to default...'); regionDescriptions = num2str([1:82]); end
 
 % Remove subjects with missing clinical data: CAT118, CAT120, CAT122
 connectivity = Matrix;
@@ -36,6 +46,7 @@ NOS_w = squeeze(connectivity(:,:,metric,:));
 NOS_b = double(NOS_w > 0);
 
 %% Inserting group membership and demographic and cognitive information
+
 Group0 = find(groups == 0);
 Group1 = find(groups == 1);
 Group2 = find(groups == 2);
@@ -125,6 +136,7 @@ if PlotAverage == 1
     hist(degrees_3); title('3');  xlabel('deg of prevalence > 0.4')
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% Unweighted NOS %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Calculate degree, density, length, and clustering for each subject
 % Everything here is done on a single-level, only use prevalence-thresholds
 % when looking at group average connectomes
@@ -162,8 +174,18 @@ if PlotAll == 1
     subplot(2,2,2); boxplot(Result.cpl,groups,'colorgroup',groups);title('characteristic path length');
     subplot(2,2,3); boxplot(Result.clust,groups,'colorgroup',groups);title('clustering');
     subplot(2,2,4); boxplot(Result.Sigma,groups,'colorgroup',groups);title('small-world coefficient');
+    
+    ha = axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
+    text(0.5, 1,'\bf Binary Networks based on NOS','HorizontalAlignment','center','VerticalAlignment', 'top');
+    
+    figure;
+    subplot(4,1,1); bar(mean(Result.deg(groups == 0,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionDescriptions)),'XLim',[0 (length(regionDescriptions)+1)],'XTickLabel',regionDescriptions, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 0'); title('Degree');
+    subplot(4,1,2); bar(mean(Result.deg(groups == 1,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionDescriptions)),'XLim',[0 (length(regionDescriptions)+1)],'XTickLabel',regionDescriptions, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 1');
+    subplot(4,1,3); bar(mean(Result.deg(groups == 2,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionDescriptions)),'XLim',[0 (length(regionDescriptions)+1)],'XTickLabel',regionDescriptions, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 2');
+    subplot(4,1,4); bar(mean(Result.deg(groups == 3,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionDescriptions)),'XLim',[0 (length(regionDescriptions)+1)],'XTickLabel',regionDescriptions, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 3');
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% Weighted NOS %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Weighted networks
 for i = 1:nSubjects
     A = squeeze(connectivity(:,:,metric,i));
@@ -182,17 +204,18 @@ if PlotAll == 1
     subplot(2,2,3); boxplot(wResult.clust,groups,'colorgroup',groups);title('clustering');
     subplot(2,2,4); boxplot(wResult.trans,groups,'colorgroup',groups);title('transitivity');
     
-        ha = axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
+    ha = axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
     text(0.5, 1,'\bf Weighted Networks','HorizontalAlignment','center','VerticalAlignment', 'top');
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% Unweighted by prevalence %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Network with NOS in >40% of subject
 PrevalenceMask = squeeze(double(connectivity(:,:,1,:)>0));
 PrevalenceMask = mean(PrevalenceMask,3);
 PrevalenceMask = double(PrevalenceMask>prev);
 
 for i = 1:nSubjects
-    A = double(connectivity(:,:,metric,i) > 0); 
+    A = double(connectivity(:,:,metric,i) > 0);
     A = A.*PrevalenceMask;
     
     % create non-normalized output
@@ -210,7 +233,7 @@ for i = 1:nSubjects
     Crand = mean(clustering_coef_bu(R)); % get random clustering
     Lrand = charpath(distance_bin(R)); % get path length from random matrix
     pResult.Sigma(i,:)=(pResult.clust(i,:)./Crand)./(pResult.cpl(i,:)./Lrand); % get small world coefficient
-
+    
     for iR = 1:nRand
         TempClub(iR,:,:) = randmio_und_connected(A, nRand);% create a random matrix from original
         RichRand(iR,:) = rich_club_bu(squeeze(TempClub(iR,:,:)),35);
@@ -229,8 +252,31 @@ if PlotAll == 1
     
     ha = axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
     text(0.5, 1,'\bf Weighted according to Prevalence','HorizontalAlignment','center','VerticalAlignment', 'top');
+    
+end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% Weighted by NOS corrected for VOI %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% Weighted by FA %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for i = 1:nSubjects
+    A = squeeze(connectivity(:,:,3,i));
+    % create non-normalized output
+    faResult.deg(i,:) = degrees_und(A); % degree
+    faResult.dens(i,:) = density_und(A); %density
+    faResult.cpl(i,:) = charpath(distance_wei(A)); %characteristic path length
+    faResult.clust(i,:) = mean(clustering_coef_wu(A)); %clustering coefficient
+    faResult.trans(i,:) = transitivity_wu(A); %transitivity
+end
+
+if PlotAll == 1
+    figure;
+    subplot(2,2,1); boxplot(faResult.dens,groups,'colorgroup',groups);title('density');
+    subplot(2,2,2); boxplot(faResult.cpl,groups,'colorgroup',groups);title('characteristic path length');
+    subplot(2,2,3); boxplot(faResult.clust,groups,'colorgroup',groups);title('clustering');
+    subplot(2,2,4); boxplot(faResult.trans,groups,'colorgroup',groups);title('transitivity');
+    
+    ha = axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
+    text(0.5, 1,'\bf Weighted Networks by FA','HorizontalAlignment','center','VerticalAlignment', 'top');
 end
 
 end
-
