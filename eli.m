@@ -1,59 +1,74 @@
-function [Result wResult pResult faResult] = eli(Matrix,regionDescriptions, nRand, PlotAverage, PlotAll, prev, metric,GroupMask)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% INPUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Matrix            -       4D connectivity matrix(node*node*measure*subject)
-%% regionDescriptions-       A cell structure containing names of all nodes in your matrix (at this point its only used for plotting)
-%% UseMask           -       1D logical with which subjects to include, if not supplied defaults to all
-%% nRand             -       number of randomization used in random networks for normalization
-%% PlotAverage       -       Logical to set if we want to plot average
-%% PlotAll           -       Logical to set if we want to plot the output of some graph metrics
-%% prev              -       prevalence for prevalence weighted matrices
-%% metric            -       metric that we want to use to construct matrices (defaults to number of streamlines)
-%% GroupMask         -       1D vector with grouplabels
-%% TODO:
-%% include subject mask to tell which subject to include (although this is probably better to do beforehand...)
-%% include ROI volume vector for volume weighting/correction
+function [Result wResult pResult faResult] = eli(Matrix,varargin)
+% 
+% run as: [nResult wResult pResult faResult] = eli2('Matrix',adjacencymatrix);
+% 
+% ---------------------------- INPUT ----------------------------
+%
+% Matrix            -       4D connectivity matrix(node*node*measure*subject)
+%
+% --------------------- OPTIONAL ARGUMENTS ----------------------
+%
+% regionDescriptions-       A cell structure containing names of all nodes in your matrix (at this point its only used for plotting)
+% nRand             -       number of randomization used in random networks for normalization
+% PlotAverage       -       Logical to set if we want to plot average
+% PlotAll           -       Logical to set if we want to plot the output of some graph metrics
+% prev              -       prevalence for prevalence weighted matrices
+% metric            -       metric that we want to use to construct matrices (defaults to number of streamlines)
+% groups            -       1D vector with grouplabels
+%
+% ---------------------------- OUTPUT ----------------------------
+% Result            -       Graph metrics from binary matrices including all NOS's >0
+% wResult           -       Graph metrics from weighted matrices
+% pResult           -       Graph metrics from matrices weighted based on group prevalence
+% TODO:
+% nResult           -       Graph metrics from matrices corrected with ROI*ROI volume
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% OUTPUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Result            -       Graph metrics from binary matrices including all NOS's >0
-%% wResult           -       Graph metrics from weighted matrices
-%% pResult           -       Graph metrics from matrices weighted based on group prevalence
-%% TODO:
-%% nResult           -       Graph metrics from matrices corrected with ROI*ROI volume
+% TODO:
+% include subject mask to tell which subject to include (although this is probably better to do beforehand...)
+% include ROI volume vector for volume weighting/correction
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% EXAMPLE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% [Result wResult pResult faResult] = eli(connectivity, 1, 0, 1, groups, 0.75, 1);[Result wResult pResult] = eli(connectivity, 1, 0, 1, groups, 0.75, 1);
 
 %% check all the inputs and if they do not exist then revert to default settings
-if (~exist('GroupMask','var')); display('no groupmask specified, reverting to default...');
-    groups = [1 2 3 0	2 0	0	0	3	0	2	3	0	1	1	0	0	0	1	0	2	2	2	1	2	3	3	3	3	2	1	3	2	3	0	0	2	0	1	2	0	0	0	1	1	1	3	2	3	2	1	3	1	1	1	2	1	1	2	1	1	2	1	1	1	2	1	2	1	0	2	1	3	1	1	0	0	3	0	0	0	0	2	1	2	3	2	2	1	1	6	1	3	3	2	3	3]';
-else
-    groups = GroupMask;
-end
-if exist('prev'); prev = prev; else display('no prevalence threshold specified, reverting to default of 0.75...'); prev = 0.75; end
-if exist('nRand'); nRand = nRand; else display('no number of randomizations specified, reverting to default of 10...'); nRand = 10; end
-if exist('PlotAverage'); PlotAverage = PlotAverage; else display('no plotting option specified for average plots, reverting to default...'); PlotAverage = 0; end
-if exist('PlotAll'); PlotAll = PlotAll; else display('no plotting option specified for metric plots, reverting to default...'); PlotAll = 1; end
-if exist('metric'); metric = metric; else display('no metric specified, reverting to number of streamlines...'); metric = 1; end
-if exist('regionDescriptions'); regionDescriptions = regionDescriptions; else display('no region descriptions specified, reverting to default...'); regionDescriptions = num2str([1:82]); end
+% set the larger default in case they are not specified
+groupdefault = [1 2 3 0	2 0	0	0	3	0	2	3	0	1	1	0	0	0	1	0	2	2	2	1	2	3	3	3	3	2	1	3	2	3	0	0	2	0	1	2	0	0	0	1	1	1	3	2	3	2	1	3	1	1	1	2	1	1	2	1	1	2	1	1	1	2	1	2	1	0	2	1	3	1	1	0	0	3	0	0	0	0	2	1	2	3	2	2	1	1	6	1	3	3	2	3	3]';
+regionsdefault = num2str([1:82]);
+% input parsing settings
+p = inputParser;
+p.CaseSensitive = true;
+p.Parameters;
+p.Results;
+p.KeepUnmatched = true;
+% set the desired and optional input arguments
+addRequired(p,'Matrix',@isnumeric);
+addOptional(p,'regionDescriptions',regionsdefault,@iscell);
+addOptional(p,'nRand',10,@isnumeric);
+addOptional(p,'PlotAverage',0,@isnumeric);
+addOptional(p,'PlotAll',0,@isnumeric);
+addOptional(p,'prev',0.75,@isnumeric);
+addOptional(p,'metric',1,@isnumeric);
+addOptional(p,'groups',groupdefault, @isnumeric);
+% parse the input
+parse(p,varargin{:});
+% then set get all the inputs out of a structure
+nRand = p.Results.nRand; metric = p.Results.metric; regionDescriptions = p.Results.regionDescriptions; PlotAverage = p.Results.PlotAverage; PlotAll = p.Results.PlotAll; prev = p.Results.prev; groups = p.Results.groups; connectivity = p.Results.Matrix;
 
+%% And here we go with some actual analysis
 % Remove subjects with missing clinical data: CAT118, CAT120, CAT122
-connectivity = Matrix;
 nSubjects = size(connectivity,4);
 % Extract NOS matrix for every subject and remove singleton dimensions
 NOS_w = squeeze(connectivity(:,:,metric,:));
-
 % Binarise NOS matrix for every subject
 NOS_b = double(NOS_w > 0);
 
 %% Inserting group membership and demographic and cognitive information
-
 Group0 = find(groups == 0);
 Group1 = find(groups == 1);
 Group2 = find(groups == 2);
 Group3 = find(groups == 3);
 Group4 = find(groups == 4);
 
-% Demographics and cognitive variables
+% Demographics and cognitive variables %% PROBABLY MOVE THIS TO A POSSIBLE
+% INPUT VARIABLE!
 Age = [75	78	74	69	81	78	78	75	67	71	74	87	79	81	81	71	73	73	78	76	79	64	75	71	69	69	73	81	79	70	66	78	84	79	81	82	81	79	81	83	72	63	62	74	70	78	79	69	77	62	87	80	78	78	77	76	65	84	73	88	79	80	81	80	77	87	71	89	78	71	80	76	70	62	73	80	78	70	75	66	80	75	79	89	81	88	88	67	66	74	73	77	76	80]';
 Gender = [1	1	2	2	2	1	2	1	1	2	2	2	1	1	2	1	2	1	1	1	2	1	1	1	1	1	1	1	1	1	1	1	1	1	1	2	2	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	2	1	1	1	1	1	1	2	1	1	2	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	2	2	1	2	2	1	1	1	1	1	1	2	1	1]';
 MMSE = [30	20	28	30	28	23	30	25	28	28	21	15	28	29	28	27	30	27	20	28	18	16	21	21	21	26	26	12	25	28	21	29	28	28	30	18	25	29	29	30	23	26	19	26	22	27	19	22	25	23	15	17	23	24	22	25	23	22	29	22	19	25	28	26	23	17	28	22	24	23	18	23	29	30	23	30	30	29	30	26	19	18	28	19	19	25	23	20	25	26	25	16	19	16]';
