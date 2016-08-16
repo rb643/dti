@@ -1,6 +1,6 @@
-function [Result wResult pResult faResult] = eli(Matrix,varargin)
+function [Result wResult pResult faResult] = dti(Matrix,varargin)
 % 
-% run as: [nResult wResult pResult faResult] = eli2('Matrix',adjacencymatrix);
+% run as: [nResult wResult pResult faResult] = dti('Matrix',adjacencymatrix);
 % 
 % ---------------------------- INPUT ----------------------------
 %
