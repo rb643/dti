@@ -10,4 +10,4 @@ Requirements:
 - Matlab 2014B or higher
 - Brain Connectivity Toolbox functions
 
-* so far only tested on Mac iOS El Capitain
+Note: so far only tested on Mac iOS El Capitain
