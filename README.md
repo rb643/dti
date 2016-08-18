@@ -10,4 +10,4 @@ Requirements:
 - Brain Connectivity Toolbox functions
 - [getTop.m] (https://github.com/rb643/dti/blob/master/getTop.m), this is the script/function you need to extract the top set of nodes based on the degree
 
-Note: so far only tested on Mac iOS El Capitain
+Note: so far only tested on Mac iOS El Capitan
