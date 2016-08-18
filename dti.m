@@ -1,8 +1,9 @@
-function [nResult wResult pResult] = dti(Matrix,varargin)
+function [nResult wResult pResult p] = dti(Matrix,varargin)
 % 
 % For example:
-% [nResult wResult pResult] = dti('Matrix',adjacencymatrix);
-% [nResult wResult pResult] = dti('Matrix',adjacencymatrix,'regionLabels',regions,'prev',0.75,'PlotLocal',1,'PlotGlobal',1,'nos',10);
+% [nResult wResult pResult p] = dti('Matrix',adjacencymatrix);
+% [nResult wResult pResult p] = dti('Matrix',adjacencymatrix,'regionLabels',regions,'prev',0.75,'PlotLocal',1,'PlotGlobal',...
+%                                   1,'nos',10, 'subjectmask',include, 'groups', groups);
 % 
 % ---------------------------- INPUT ----------------------------
 %
@@ -11,26 +12,26 @@ function [nResult wResult pResult] = dti(Matrix,varargin)
 % --------------------- OPTIONAL ARGUMENTS ----------------------
 %
 % regionLabels      -       A cell structure containing names of all nodes in your matrix (at this point its only used for plotting)
-% nRand             -       number of randomizations used in random networks for normalization
-% prev              -       prevalence for prevalence weighted matrices
-% groups            -       1D vector with grouplabels
-% nos               -       threshold for the number of streamlines
-% PlotLocal         -       Logical to set if we want to plot local metrics
-% PlotGlobal        -       Logical to set if we want to plot global metrics
-% PlotMatrices      -       Logical to set if we want to plot group average matrices
+% nRand             -       number of randomizations used in random networks for normalization (default = 10)
+% prev              -       prevalence for prevalence weighted matrices  (default = 0.75)
+% groups            -       1D vector with grouplabels  (default = random)
+% nos               -       threshold for the number of streamlines (default = 10)
+% subjectmask       -       Logical to set which subjects to include (default = all a.k.a. a row of ones)
+% PlotLocal         -       Logical to set if we want to plot local metrics (default = 0)
+% PlotGlobal        -       Logical to set if we want to plot global metrics (default = 0)
+% PlotMatrices      -       Logical to set if we want to plot group average matrices (default = 0)
 %
 % ---------------------------- OUTPUT ----------------------------
 % nResult           -       Graph metrics from binary matrices including all NOS's > nos
 % wResult           -       Graph metrics from weighted matrices based on NOS
 % pResult           -       Graph metrics from matrices weighted based on group prevalence > prev
-
-% TODO:
-% include subject mask to tell which subject to include (although this is probably better to do beforehand...)
+% p                 -       Also return all the input settings to check
 
 %% check all the inputs and if they do not exist then revert to default settings
 % set the larger defaults in case they are not specified
 groupdefault = round(rand(1,size(Matrix,3))*3)'; % generate some random numbers
 regionsdefault = num2cell([1:size(Matrix,1)])'; % generate a set of numbered labels
+subjectsdefault = ones(1,size(Matrix,3));
 % input parsing settings
 p = inputParser;
 p.CaseSensitive = true;
@@ -46,15 +47,20 @@ addOptional(p,'PlotGlobal',0,@isnumeric);
 addOptional(p,'PlotMatrices',0,@isnumeric);
 addOptional(p,'prev',0.75,@isnumeric);
 addOptional(p,'groups',groupdefault, @isnumeric);
-addOptional(p,'subjectmask', @isnumeric);
-addOptional(p,'nos',0, @isnumeric);
+addOptional(p,'subjectmask', subjectsdefault, @isnumeric);
+addOptional(p,'nos',10, @isnumeric);
 % parse the input
 parse(p,varargin{:});
-% then set get all the inputs out of a structure
+% then set/get all the inputs out of this structure
 nRand = p.Results.nRand; regionLabels = p.Results.regionLabels; PlotLocal = p.Results.PlotLocal; PlotGlobal = p.Results.PlotGlobal; prev = p.Results.prev; groups = p.Results.groups; Adj = p.Results.Matrix;
-nos = p.Results.nos; PlotMatrices = p.Results.PlotMatrices;
+nos = p.Results.nos; PlotMatrices = p.Results.PlotMatrices; subjectmask = p.Results.subjectmask;
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%% Unweighted NOS %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% first only select those subjects that are included in the subjectmask if
+% it is specified (and otherwise the default is to use all)
+Adj = Adj(:,:,logical(subjectmask));
+groups = groups(logical(subjectmask));
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% Unweighted/Binary NOS %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Calculate degree, density, length, and clustering for each subject
 % Everything here is done on a single-level, only use prevalence-thresholds
 % when looking at group average connectomes
@@ -113,7 +119,6 @@ if PlotMatrices == 1
     subplot(2,2,2); imagesc(double(mean(Adj(:,:,(groups == 1)),3))>nos); title('Group 1'); colorbar; colormap(flipud('gray'));
     subplot(2,2,3); imagesc(double(mean(Adj(:,:,(groups == 2)),3))>nos); title('Group 2'); colorbar; colormap(flipud('gray'));
     subplot(2,2,4); imagesc(double(mean(Adj(:,:,(groups == 3)),3))>nos); title('Group 3'); colorbar; colormap(flipud('gray'));
-    
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% Weighted NOS %%%%%%%%%%%%%%%%%%%%%%%%%%%%
