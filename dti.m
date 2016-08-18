@@ -16,6 +16,7 @@ function [nResult wResult pResult p] = dti(Matrix,varargin)
 % prev              -       prevalence for prevalence weighted matrices  (default = 0.75)
 % groups            -       1D vector with grouplabels  (default = random)
 % nos               -       threshold for the number of streamlines (default = 10)
+% percentage        -       threshold for getting the top degree nodes (default = 0.1)
 % subjectmask       -       Logical to set which subjects to include (default = all a.k.a. a row of ones)
 % PlotLocal         -       Logical to set if we want to plot local metrics (default = 0)
 % PlotGlobal        -       Logical to set if we want to plot global metrics (default = 0)
@@ -49,11 +50,12 @@ addOptional(p,'prev',0.75,@isnumeric);
 addOptional(p,'groups',groupdefault, @isnumeric);
 addOptional(p,'subjectmask', subjectsdefault, @isnumeric);
 addOptional(p,'nos',10, @isnumeric);
+addOptional(p,'percentage',0.1, @isnumeric);
 % parse the input
 parse(p,varargin{:});
 % then set/get all the inputs out of this structure
 nRand = p.Results.nRand; regionLabels = p.Results.regionLabels; PlotLocal = p.Results.PlotLocal; PlotGlobal = p.Results.PlotGlobal; prev = p.Results.prev; groups = p.Results.groups; Adj = p.Results.Matrix;
-nos = p.Results.nos; PlotMatrices = p.Results.PlotMatrices; subjectmask = p.Results.subjectmask;
+nos = p.Results.nos; PlotMatrices = p.Results.PlotMatrices; subjectmask = p.Results.subjectmask; percentage = p.Results.percentage;
 
 % first only select those subjects that are included in the subjectmask if
 % it is specified (and otherwise the default is to use all)
@@ -92,6 +94,8 @@ for i = 1:nSubjects
     RichRand = mean(RichRand,1);
     
     nResult.Norm.rich(i,:) = nResult.rich(i,:)./RichRand;
+    
+    [nResult.mask(i,:), nResult.net(:,:,i)] = rb_getTop(nResult.deg(i,:),A,percentage);
 end
 
 if PlotGlobal == 1
@@ -132,6 +136,8 @@ for i = 1:nSubjects
     wResult.cpl(i,:) = charpath(distance_wei(A)); %characteristic path length
     wResult.clust(i,:) = mean(clustering_coef_wu(A)); %clustering coefficient
     wResult.trans(i,:) = transitivity_wu(A); %transitivity
+    
+    [wResult.mask(i,:), wResult.net(:,:,i)] = rb_getTop(nResult.deg(i,:),A,percentage);
 end
 
 if PlotGlobal == 1
@@ -196,6 +202,8 @@ for i = 1:nSubjects
     RichRand = mean(RichRand,1);
     
     pResult.Norm.rich(i,:) = pResult.rich(i,:)./RichRand;
+    
+    [pResult.mask(i,:), pResult.net(:,:,i)] = rb_getTop(nResult.deg(i,:),A,percentage);
 end
 
 if PlotGlobal == 1
