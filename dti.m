@@ -95,7 +95,7 @@ for i = 1:nSubjects
     
     nResult.Norm.rich(i,:) = nResult.rich(i,:)./RichRand;
     
-    [nResult.mask(i,:), nResult.net(:,:,i)] = rb_getTop(nResult.deg(i,:),A,percentage);
+    [nResult.mask(i,:), nResult.net(:,:,i)] = getTop(nResult.deg(i,:),A,percentage);
 end
 
 if PlotGlobal == 1
@@ -137,7 +137,7 @@ for i = 1:nSubjects
     wResult.clust(i,:) = mean(clustering_coef_wu(A)); %clustering coefficient
     wResult.trans(i,:) = transitivity_wu(A); %transitivity
     
-    [wResult.mask(i,:), wResult.net(:,:,i)] = rb_getTop(nResult.deg(i,:),A,percentage);
+    [wResult.mask(i,:), wResult.net(:,:,i)] = getTop(nResult.deg(i,:),A,percentage);
 end
 
 if PlotGlobal == 1
@@ -203,7 +203,7 @@ for i = 1:nSubjects
     
     pResult.Norm.rich(i,:) = pResult.rich(i,:)./RichRand;
     
-    [pResult.mask(i,:), pResult.net(:,:,i)] = rb_getTop(nResult.deg(i,:),A,percentage);
+    [pResult.mask(i,:), pResult.net(:,:,i)] = getTop(nResult.deg(i,:),A,percentage);
 end
 
 if PlotGlobal == 1
