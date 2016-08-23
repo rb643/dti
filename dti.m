@@ -1,10 +1,10 @@
 function [nResult wResult pResult p] = dti(Matrix,varargin)
-% 
+%
 % For example:
 % [nResult wResult pResult p] = dti('Matrix',adjacencymatrix);
 % [nResult wResult pResult p] = dti('Matrix',adjacencymatrix,'regionLabels',regions,'prev',0.75,'PlotLocal',1,'PlotGlobal',...
 %                                   1,'nos',10, 'subjectmask',include, 'groups', groups);
-% 
+%
 % ---------------------------- INPUT ----------------------------
 %
 % Matrix            -       3D connectivity matrix(node*node*subject)
@@ -85,17 +85,22 @@ for i = 1:nSubjects
     Crand = mean(clustering_coef_bu(R)); % get random clustering
     Lrand = charpath(distance_bin(R)); % get path length from random matrix
     nResult.Sigma(i,:)=(nResult.clust(i,:)./Crand)./(nResult.cpl(i,:)./Lrand); % get small world coefficient
-    cpl_random(i,:) = mean(squareform(distance_bin(R)));
-    clust_random(i,:) = mean(clustering_coef_bu(R));
+    
     for iR = 1:nRand
-        TempClub(iR,:,:) = randmio_und_connected(A, nRand);% create a random matrix from original
-        RichRand(iR,:) = rich_club_bu(squeeze(TempClub(iR,:,:)),35);
+        R = randmio_und_connected(A, nRand);
+        RichRand(iR,:) = rich_club_bu(R,35);
+        cpl_random(iR,:) = charpath(distance_bin(R));
+        clust_random(iR,:) = mean(clustering_coef_bu(R));
     end
     RichRand = mean(RichRand,1);
+    CplRand = mean(cpl_random,1);
+    ClustRand = mean(clust_random,1);
     
     nResult.Norm.rich(i,:) = nResult.rich(i,:)./RichRand;
+    nResult.Norm.cpl(i,:) = nResult.cpl(i,:)/CplRand;
+    nResult.Norm.clust(i,:) = nResult.clust(i,:)/ClustRand;
     
-    [nResult.mask(i,:), nResult.net(:,:,i)] = getTop(nResult.deg(i,:),A,percentage);
+    [nResult.mask(i,:), nResult.net(:,:,i)] = rb_getTop(nResult.deg(i,:),A,percentage);
 end
 
 if PlotGlobal == 1
@@ -107,8 +112,8 @@ if PlotGlobal == 1
     
     ha = axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
     text(0.5, 1,'\bf Binary Networks based on NOS','HorizontalAlignment','center','VerticalAlignment', 'top');
- end
-   
+end
+
 if PlotLocal == 1
     figure;
     subplot(4,1,1); bar(mean(nResult.deg(groups == 0,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionLabels)),'XLim',[0 (length(regionLabels)+1)],'XTickLabel',regionLabels, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 0'); title('Degree');
@@ -137,7 +142,18 @@ for i = 1:nSubjects
     wResult.clust(i,:) = mean(clustering_coef_wu(A)); %clustering coefficient
     wResult.trans(i,:) = transitivity_wu(A); %transitivity
     
-    [wResult.mask(i,:), wResult.net(:,:,i)] = getTop(nResult.deg(i,:),A,percentage);
+    for iR = 1:nRand
+        R = randmio_und_connected(A, nRand);% create a random matrix from original
+        cpl_random(iR,:) = charpath(distance_wei(R));
+        clust_random(iR,:) = mean(clustering_coef_wu(R));
+    end
+    CplRand = mean(cpl_random,1);
+    ClustRand = mean(clust_random,1);
+    
+    wResult.Norm.cpl(i,:) = wResult.cpl(i,:)/CplRand;
+    wResult.Norm.clust(i,:) = wResult.clust(i,:)/ClustRand;
+    
+    [wResult.mask(i,:), wResult.net(:,:,i)] = rb_getTop(wResult.deg(i,:),A,percentage);
 end
 
 if PlotGlobal == 1
@@ -178,7 +194,7 @@ for i = 1:nSubjects
     A = double(Adj(:,:,i) > nos);
     A = A.*PrevalenceMask;
     A = A + triu(A,1)';
-  
+    
     % create non-normalized output
     pResult.deg(i,:) = degrees_und(A); % degree
     pResult.dens(i,:) = density_und(A); %density
@@ -196,14 +212,20 @@ for i = 1:nSubjects
     pResult.Sigma(i,:)=(pResult.clust(i,:)./Crand)./(pResult.cpl(i,:)./Lrand); % get small world coefficient
     
     for iR = 1:nRand
-        TempClub(iR,:,:) = randmio_und_connected(A, nRand);% create a random matrix from original
-        RichRand(iR,:) = rich_club_bu(squeeze(TempClub(iR,:,:)),35);
+        R = randmio_und_connected(A, nRand);
+        RichRand(iR,:) = rich_club_bu(R,35);
+        cpl_random(iR,:) = charpath(distance_bin(R));
+        clust_random(iR,:) = mean(clustering_coef_bu(R));
     end
     RichRand = mean(RichRand,1);
+    CplRand = mean(cpl_random,1);
+    ClustRand = mean(clust_random,1);
     
     pResult.Norm.rich(i,:) = pResult.rich(i,:)./RichRand;
+    pResult.Norm.cpl(i,:) = pResult.cpl(i,:)/CplRand;
+    pResult.Norm.clust(i,:) = pResult.clust(i,:)/ClustRand;
     
-    [pResult.mask(i,:), pResult.net(:,:,i)] = getTop(nResult.deg(i,:),A,percentage);
+    [pResult.mask(i,:), pResult.net(:,:,i)] = rb_getTop(pResult.deg(i,:),A,percentage);
 end
 
 if PlotGlobal == 1
@@ -214,7 +236,7 @@ if PlotGlobal == 1
     subplot(2,2,4); boxplot(pResult.trans,groups,'colorgroup',groups);title('transitivity');
     
     ha = axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
-    text(0.5, 1,'\bf Weighted according to Prevalence','HorizontalAlignment','center','VerticalAlignment', 'top'); 
+    text(0.5, 1,'\bf Weighted according to Prevalence','HorizontalAlignment','center','VerticalAlignment', 'top');
 end
 
 if PlotLocal == 1
