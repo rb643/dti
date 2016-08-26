@@ -27,7 +27,7 @@ function [nResult wResult pResult p] = dti(Matrix,varargin)
 % wResult           -       Graph metrics from weighted matrices based on NOS
 % pResult           -       Graph metrics from matrices weighted based on group prevalence > prev
 % p                 -       Also return all the input settings to check
-
+ 
 %% check all the inputs and if they do not exist then revert to default settings
 % set the larger defaults in case they are not specified
 groupdefault = round(rand(1,size(Matrix,3))*3)'; % generate some random numbers
@@ -56,12 +56,12 @@ parse(p,varargin{:});
 % then set/get all the inputs out of this structure
 nRand = p.Results.nRand; regionLabels = p.Results.regionLabels; PlotLocal = p.Results.PlotLocal; PlotGlobal = p.Results.PlotGlobal; prev = p.Results.prev; groups = p.Results.groups; Adj = p.Results.Matrix;
 nos = p.Results.nos; PlotMatrices = p.Results.PlotMatrices; subjectmask = p.Results.subjectmask; percentage = p.Results.percentage;
-
+ 
 % first only select those subjects that are included in the subjectmask if
 % it is specified (and otherwise the default is to use all)
 Adj = Adj(:,:,logical(subjectmask));
 groups = groups(logical(subjectmask));
-
+ 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% Unweighted/Binary NOS %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Calculate degree, density, length, and clustering for each subject
 % Everything here is done on a single-level, only use prevalence-thresholds
@@ -87,7 +87,7 @@ for i = 1:nSubjects
     nResult.Sigma(i,:)=(nResult.clust(i,:)./Crand)./(nResult.cpl(i,:)./Lrand); % get small world coefficient
     
     for iR = 1:nRand
-        R = randmio_und_connected(A, nRand);
+        R = randmio_und_connected(A, 10);
         RichRand(iR,:) = rich_club_bu(R,35);
         cpl_random(iR,:) = charpath(distance_bin(R));
         clust_random(iR,:) = mean(clustering_coef_bu(R));
@@ -102,7 +102,7 @@ for i = 1:nSubjects
     
     [nResult.mask(i,:), nResult.net(:,:,i)] = rb_getTop(nResult.deg(i,:),A,percentage);
 end
-
+ 
 if PlotGlobal == 1
     figure;
     subplot(2,2,1); boxplot(nResult.dens,groups,'colorgroup',groups);title('density');
@@ -113,7 +113,7 @@ if PlotGlobal == 1
     ha = axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
     text(0.5, 1,'\bf Binary Networks based on NOS','HorizontalAlignment','center','VerticalAlignment', 'top');
 end
-
+ 
 if PlotLocal == 1
     figure;
     subplot(4,1,1); bar(mean(nResult.deg(groups == 0,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionLabels)),'XLim',[0 (length(regionLabels)+1)],'XTickLabel',regionLabels, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 0'); title('Degree');
@@ -121,7 +121,7 @@ if PlotLocal == 1
     subplot(4,1,3); bar(mean(nResult.deg(groups == 2,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionLabels)),'XLim',[0 (length(regionLabels)+1)],'XTickLabel',regionLabels, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 2');
     subplot(4,1,4); bar(mean(nResult.deg(groups == 3,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionLabels)),'XLim',[0 (length(regionLabels)+1)],'XTickLabel',regionLabels, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 3');
 end
-
+ 
 if PlotMatrices == 1
     figure;
     subplot(2,2,1); imagesc(double(mean(Adj(:,:,(groups == 0)),3))>nos); title('Group 0'); colorbar; colormap(flipud('gray'));
@@ -129,7 +129,7 @@ if PlotMatrices == 1
     subplot(2,2,3); imagesc(double(mean(Adj(:,:,(groups == 2)),3))>nos); title('Group 2'); colorbar; colormap(flipud('gray'));
     subplot(2,2,4); imagesc(double(mean(Adj(:,:,(groups == 3)),3))>nos); title('Group 3'); colorbar; colormap(flipud('gray'));
 end
-
+ 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% Weighted NOS %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Weighted networks
 for i = 1:nSubjects
@@ -143,7 +143,7 @@ for i = 1:nSubjects
     wResult.trans(i,:) = transitivity_wu(A); %transitivity
     
     for iR = 1:nRand
-        R = randmio_und_connected(A, nRand);% create a random matrix from original
+        R = randmio_und_connected(A, 10);% create a random matrix from original
         cpl_random(iR,:) = charpath(distance_wei(R));
         clust_random(iR,:) = mean(clustering_coef_wu(R));
     end
@@ -155,7 +155,7 @@ for i = 1:nSubjects
     
     [wResult.mask(i,:), wResult.net(:,:,i)] = rb_getTop(wResult.deg(i,:),A,percentage);
 end
-
+ 
 if PlotGlobal == 1
     figure;
     subplot(2,2,1); boxplot(wResult.dens,groups,'colorgroup',groups);title('density');
@@ -166,7 +166,7 @@ if PlotGlobal == 1
     ha = axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
     text(0.5, 1,'\bf Weighted Networks','HorizontalAlignment','center','VerticalAlignment', 'top');
 end
-
+ 
 if PlotLocal == 1
     figure;
     subplot(4,1,1); bar(mean(wResult.deg(groups == 0,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionLabels)),'XLim',[0 (length(regionLabels)+1)],'XTickLabel',regionLabels, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 0'); title('Degree');
@@ -174,7 +174,7 @@ if PlotLocal == 1
     subplot(4,1,3); bar(mean(wResult.deg(groups == 2,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionLabels)),'XLim',[0 (length(regionLabels)+1)],'XTickLabel',regionLabels, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 2');
     subplot(4,1,4); bar(mean(wResult.deg(groups == 3,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionLabels)),'XLim',[0 (length(regionLabels)+1)],'XTickLabel',regionLabels, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 3');
 end
-
+ 
 if PlotMatrices == 1
     figure;
     subplot(2,2,1); imagesc((mean(Adj(:,:,(groups == 0)),3))); title('Group 0'); colorbar;
@@ -182,14 +182,14 @@ if PlotMatrices == 1
     subplot(2,2,3); imagesc((mean(Adj(:,:,(groups == 2)),3))); title('Group 2'); colorbar;
     subplot(2,2,4); imagesc((mean(Adj(:,:,(groups == 3)),3))); title('Group 3'); colorbar;
 end
-
-
+ 
+ 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% Unweighted by prevalence %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Network with NOS in prevalence percentge of the entire sample
 PrevalenceMask = squeeze(double(Adj(:,:,:)>0)); % get all cells that have some NOS
 PrevalenceMask = mean(PrevalenceMask,3); % get the mean of those cells
 PrevalenceMask = double(PrevalenceMask>prev); % create a mask based on prevalence
-
+ 
 for i = 1:nSubjects
     A = double(Adj(:,:,i) > nos);
     A = A.*PrevalenceMask;
@@ -212,7 +212,7 @@ for i = 1:nSubjects
     pResult.Sigma(i,:)=(pResult.clust(i,:)./Crand)./(pResult.cpl(i,:)./Lrand); % get small world coefficient
     
     for iR = 1:nRand
-        R = randmio_und_connected(A, nRand);
+        R = randmio_und_connected(A, 10);
         RichRand(iR,:) = rich_club_bu(R,35);
         cpl_random(iR,:) = charpath(distance_bin(R));
         clust_random(iR,:) = mean(clustering_coef_bu(R));
@@ -227,7 +227,7 @@ for i = 1:nSubjects
     
     [pResult.mask(i,:), pResult.net(:,:,i)] = rb_getTop(pResult.deg(i,:),A,percentage);
 end
-
+ 
 if PlotGlobal == 1
     figure;
     subplot(2,2,1); boxplot(pResult.dens,groups,'colorgroup',groups);title('density');
@@ -238,7 +238,7 @@ if PlotGlobal == 1
     ha = axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
     text(0.5, 1,'\bf Weighted according to Prevalence','HorizontalAlignment','center','VerticalAlignment', 'top');
 end
-
+ 
 if PlotLocal == 1
     figure;
     subplot(4,1,1); bar(mean(pResult.deg(groups == 0,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionLabels)),'XLim',[0 (length(regionLabels)+1)],'XTickLabel',regionLabels, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 0'); title('Degree');
@@ -246,7 +246,7 @@ if PlotLocal == 1
     subplot(4,1,3); bar(mean(pResult.deg(groups == 2,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionLabels)),'XLim',[0 (length(regionLabels)+1)],'XTickLabel',regionLabels, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 2');
     subplot(4,1,4); bar(mean(pResult.deg(groups == 3,:)),'FaceColor',[0 .5 .5],'EdgeColor',[0 .9 .9],'LineWidth',1); set(gca,'XTick',1:1:(length(regionLabels)),'XLim',[0 (length(regionLabels)+1)],'XTickLabel',regionLabels, 'XTickLabelRotation',90, 'Fontsize', 10); ylabel('Group 3');
 end
-
+ 
 if PlotMatrices == 1
     figure;
     subplot(2,2,1); imagesc(double(mean(Adj(:,:,(groups == 0)),3).*PrevalenceMask)>0); title('Group 0'); colorbar; colormap(flipud('gray'));
@@ -254,5 +254,5 @@ if PlotMatrices == 1
     subplot(2,2,3); imagesc(double(mean(Adj(:,:,(groups == 2)),3).*PrevalenceMask)>0); title('Group 2'); colorbar; colormap(flipud('gray'));
     subplot(2,2,4); imagesc(double(mean(Adj(:,:,(groups == 3)),3).*PrevalenceMask)>0); title('Group 3'); colorbar; colormap(flipud('gray'));
 end
-
+ 
 end
