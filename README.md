@@ -4,6 +4,7 @@ So far contains 3 scripts
 
 - [dti.m] (https://github.com/rb643/dti/blob/master/dti.m), this is the main script to run all functions. Just type help dti and it will tell you what to do and what your options are
 - [runStats.m] (https://github.com/rb643/dti/blob/master/runStats.m), this runs some statistics on the output you would get from running dti.m. You can specify which output you want and which metric. Currently only runs a standard ANOVA + post-hoc permutation on global metrics.
+- [modularityConsensusFun.m] (https://github.com/rb643/dti/blob/master/modularityConsensusFun.m), this runs an iterated version of the BCT community_louvain function to ensure that you get a stable community structure
 
 Requirements:
 - Matlab 2014B or higher
