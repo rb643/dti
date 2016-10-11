@@ -66,42 +66,51 @@ groups = groups(logical(subjectmask));
 %% Calculate degree, density, length, and clustering for each subject
 % Everything here is done on a single-level, only use prevalence-thresholds
 % when looking at group average connectomes
+h = waitbar(0,'Running analysis on binary NOS measure'); 
 nSubjects = size(Adj,3);
 for i = 1:nSubjects
+    waitbar(i/nSubjects);
     A = double(Adj(:,:,i) > nos);
     A = A + triu(A,1)';
     % create non-normalized output
     nResult.deg(i,:) = degrees_und(A); % degree
     nResult.dens(i,:) = density_und(A); %density
     nResult.cpl(i,:) = charpath(distance_bin(A)); %characteristic path length
-    nResult.clust(i,:) = mean(clustering_coef_bu(A)); %clustering coefficient
+    [M Q] = modularityConsensusFun(A,1,nRand); %optimized clustering coefficient
+    nResult.M(i,:) = M; 
+    nResult.clustcoeff(i,:) = mean(clustering_coef_bu(A)); 
     nResult.rich(i,:) = rich_club_bu(A,35); %rich-club coefficient
     nResult.trans(i,:) = transitivity_bu(A); %transitivity
     nResult.assor(i,:) = assortativity_bin(A,0); %assortativity
     nResult.effN(i,:) = efficiency_nodal(A); %efficiency
+    nResult.part(i,:) = participation_coef(A,M);
     
     % create a random matrix for normalization
     R = randmio_und(A,nRand);
     Crand = mean(clustering_coef_bu(R)); % get random clustering
     Lrand = charpath(distance_bin(R)); % get path length from random matrix
-    nResult.Sigma(i,:)=(nResult.clust(i,:)./Crand)./(nResult.cpl(i,:)./Lrand); % get small world coefficient
+    nResult.Sigma(i,:)=(nResult.clustcoeff(i,:)./Crand)./(nResult.cpl(i,:)./Lrand); % get small world coefficient
     
     for iR = 1:nRand
         R = randmio_und_connected(A, 10);
         RichRand(iR,:) = rich_club_bu(R,35);
         cpl_random(iR,:) = charpath(distance_bin(R));
         clust_random(iR,:) = mean(clustering_coef_bu(R));
+        trans_random(iR,:) = transitivity_bu(R);
     end
     RichRand = mean(RichRand,1);
     CplRand = mean(cpl_random,1);
-    ClustRand = mean(clust_random,1);
+    ClustCoeffRand = mean(clust_random,1);
+    TransRand = mean(trans_random,1);
     
     nResult.Norm.rich(i,:) = nResult.rich(i,:)./RichRand;
     nResult.Norm.cpl(i,:) = nResult.cpl(i,:)/CplRand;
-    nResult.Norm.clust(i,:) = nResult.clust(i,:)/ClustRand;
+    nResult.Norm.clustcoeff(i,:) = nResult.clustcoeff(i,:)/ClustCoeffRand;
+    nResult.Norm.trans(i,:) = nResult.trans(i,:)/TransRand;
     
     [nResult.mask(i,:), nResult.net(:,:,i)] = rb_getTop(nResult.deg(i,:),A,percentage);
 end
+close(h);
  
 if PlotGlobal == 1
     figure;
@@ -132,29 +141,39 @@ end
  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% Weighted NOS %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Weighted networks
+h = waitbar(0,'Running analysis on weighted networks'); 
 for i = 1:nSubjects
+    waitbar(i/nSubjects);
     A = squeeze(Adj(:,:,i));
     A = A + triu(A,1)';
     % create non-normalized output
     wResult.deg(i,:) = degrees_und(A); % degree
     wResult.dens(i,:) = density_und(A); %density
     wResult.cpl(i,:) = charpath(distance_wei(A)); %characteristic path length
-    wResult.clust(i,:) = mean(clustering_coef_wu(A)); %clustering coefficient
     wResult.trans(i,:) = transitivity_wu(A); %transitivity
+    
+    [M Q] = modularityConsensusFun(A,1,nRand); %optimized clustering coefficient
+    wResult.M(i,:) = M; 
+    wResult.clustcoeff(i,:) = mean(clustering_coef_bu(A)); 
+    wResult.part(i,:) = participation_coef(A,M);
     
     for iR = 1:nRand
         R = randmio_und_connected(A, 10);% create a random matrix from original
         cpl_random(iR,:) = charpath(distance_wei(R));
         clust_random(iR,:) = mean(clustering_coef_wu(R));
+        trans_random(iR,:) = transitivity_bu(R);
     end
     CplRand = mean(cpl_random,1);
     ClustRand = mean(clust_random,1);
+    TransRand = mean(trans_random,1);
     
     wResult.Norm.cpl(i,:) = wResult.cpl(i,:)/CplRand;
-    wResult.Norm.clust(i,:) = wResult.clust(i,:)/ClustRand;
+    wResult.Norm.clustcoeff(i,:) = wResult.clustcoeff(i,:)/ClustRand;
+    wResult.Norm.trans(i,:) = wResult.trans(i,:)/TransRand;
     
     [wResult.mask(i,:), wResult.net(:,:,i)] = rb_getTop(wResult.deg(i,:),A,percentage);
 end
+close(h)
  
 if PlotGlobal == 1
     figure;
@@ -189,8 +208,10 @@ end
 PrevalenceMask = squeeze(double(Adj(:,:,:)>0)); % get all cells that have some NOS
 PrevalenceMask = mean(PrevalenceMask,3); % get the mean of those cells
 PrevalenceMask = double(PrevalenceMask>prev); % create a mask based on prevalence
- 
+
+h = waitbar(0,'Running analysis on binary prevalence networks'); 
 for i = 1:nSubjects
+    waitbar(i/nSubjects);
     A = double(Adj(:,:,i) > nos);
     A = A.*PrevalenceMask;
     A = A + triu(A,1)';
@@ -199,11 +220,14 @@ for i = 1:nSubjects
     pResult.deg(i,:) = degrees_und(A); % degree
     pResult.dens(i,:) = density_und(A); %density
     pResult.cpl(i,:) = charpath(distance_bin(A)); %characteristic path length
-    pResult.clust(i,:) = mean(clustering_coef_bu(A)); %clustering coefficient
+    [M Q] = modularityConsensusFun(A,1,nRand); %optimized clustering coefficient
+    pResult.M(i,:) = M; 
+    pResult.clustcoeff(i,:) = mean(clustering_coef_bu(A)); 
     pResult.rich(i,:) = rich_club_bu(A,35); %rich-club coefficient
     pResult.trans(i,:) = transitivity_bu(A); %transitivity
     pResult.assor(i,:) = assortativity_bin(A,0); %assortativity
     pResult.effN(i,:) = efficiency_nodal(A); %efficiency
+    pResult.part(i,:) = participation_coef(A,M);
     
     % create a random matrix for normalization
     R = randmio_und(A,nRand);
@@ -216,17 +240,21 @@ for i = 1:nSubjects
         RichRand(iR,:) = rich_club_bu(R,35);
         cpl_random(iR,:) = charpath(distance_bin(R));
         clust_random(iR,:) = mean(clustering_coef_bu(R));
+        trans_random(iR,:) = transitivity_bu(R);
     end
     RichRand = mean(RichRand,1);
     CplRand = mean(cpl_random,1);
     ClustRand = mean(clust_random,1);
+    TransRand = mean(trans_random,1);
     
     pResult.Norm.rich(i,:) = pResult.rich(i,:)./RichRand;
     pResult.Norm.cpl(i,:) = pResult.cpl(i,:)/CplRand;
-    pResult.Norm.clust(i,:) = pResult.clust(i,:)/ClustRand;
+    pResult.Norm.clustcoeff(i,:) = pResult.clustcoeff(i,:)/ClustRand;
+    pResult.Norm.trans(i,:) = pResult.trans(i,:)/TransRand;
     
     [pResult.mask(i,:), pResult.net(:,:,i)] = rb_getTop(pResult.deg(i,:),A,percentage);
 end
+close(h)
  
 if PlotGlobal == 1
     figure;
